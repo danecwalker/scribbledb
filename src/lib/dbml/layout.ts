@@ -1,8 +1,14 @@
 // src/lib/dbml/layout.ts
-import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ParsedSchema, SchemaTable, SchemaRef, SchemaTableGroup } from './parser';
 
-const elk = new ELK();
+let elk: any;
+async function getELK() {
+  if (!elk) {
+    const { default: ELK } = await import('elkjs/lib/elk.bundled.js');
+    elk = new ELK();
+  }
+  return elk;
+}
 
 export type LayoutDirection = 'RIGHT' | 'LEFT' | 'DOWN' | 'UP';
 
@@ -267,7 +273,8 @@ export async function computeLayout(schema: ParsedSchema, direction: LayoutDirec
     edges,
   };
 
-  const result = await elk.layout(graph) as any;
+  const elkInstance = await getELK();
+  const result = await elkInstance.layout(graph) as any;
 
   // Extract nodes and groups from the result
   const nodes: LayoutNode[] = [];
