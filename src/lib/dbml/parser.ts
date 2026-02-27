@@ -173,7 +173,10 @@ export async function exportDBML(source: string, format: ExportFormat): Promise<
   const parser = new Parser();
   const database = parser.parse(source, 'dbml');
 
-  // Fix jsonb/json defaults for PostgreSQL: wrap string defaults as '...'::type
+  // Fix jsonb/json defaults for PostgreSQL: wrap as '...'::jsonb
+  // @dbml/core doesn't recognize jsonb as a string type, so defaults end up
+  // with type 'jsonb'/'json' (quoted values) or 'expression' (backtick values)
+  // and export without the required cast.
   if (format === 'postgres') {
     for (const schema of database.schemas) {
       for (const table of schema.tables) {
@@ -181,11 +184,13 @@ export async function exportDBML(source: string, format: ExportFormat): Promise<
           const typeName = field.type?.type_name?.toLowerCase();
           if (
             (typeName === 'jsonb' || typeName === 'json') &&
-            field.dbdefault &&
-            field.dbdefault.type === 'string'
+            field.dbdefault
           ) {
+            const val = String(field.dbdefault.value);
+            // Skip if already has the cast
+            if (val.includes(`::${typeName}`)) continue;
             field.dbdefault = {
-              value: `'${field.dbdefault.value}'::${typeName}`,
+              value: `'${val}'::${typeName}`,
               type: 'expression',
             };
           }
