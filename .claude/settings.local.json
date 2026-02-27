@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "WebFetch(domain:dbml.dbdiagram.io)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:eclipse.dev)",
+      "WebFetch(domain:www.d3indepth.com)",
+      "WebFetch(domain:hackmd.io)",
+      "WebFetch(domain:codemirror.net)",
+      "WebFetch(domain:www.datamake.io)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:svelte.dev)",
+      "WebFetch(domain:www.devtoolsdaily.com)",
+      "WebFetch(domain:discuss.codemirror.net)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:reactflow.dev)",
+      "WebFetch(domain:snyk.io)",
+      "WebFetch(domain:observablehq.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:community.dbdiagram.io)",
+      "Bash(git:*)"
+    ]
+  }
+}
