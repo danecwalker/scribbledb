@@ -40,10 +40,18 @@ export interface SchemaEnum {
   values: { name: string; note: string | null }[];
 }
 
+export interface SchemaTableGroup {
+  name: string;
+  tables: { schemaName: string; tableName: string }[];
+  color: string | null;
+  note: string | null;
+}
+
 export interface ParsedSchema {
   tables: SchemaTable[];
   refs: SchemaRef[];
   enums: SchemaEnum[];
+  tableGroups: SchemaTableGroup[];
 }
 
 export interface ParseError {
@@ -65,6 +73,7 @@ export function parseDBML(source: string): ParseResult {
     const tables: SchemaTable[] = [];
     const refs: SchemaRef[] = [];
     const enums: SchemaEnum[] = [];
+    const tableGroups: SchemaTableGroup[] = [];
 
     for (const schema of database.schemas) {
       for (const table of schema.tables) {
@@ -113,9 +122,21 @@ export function parseDBML(source: string): ParseResult {
           })),
         });
       }
+
+      for (const group of schema.tableGroups || []) {
+        tableGroups.push({
+          name: group.name,
+          tables: (group.tables || []).map((t: any) => ({
+            schemaName: t.schemaName || schema.name,
+            tableName: t.name,
+          })),
+          color: group.color || null,
+          note: group.note || null,
+        });
+      }
     }
 
-    return { ok: true, schema: { tables, refs, enums } };
+    return { ok: true, schema: { tables, refs, enums, tableGroups } };
   } catch (e: any) {
     if (e.diags && Array.isArray(e.diags)) {
       const errors: ParseError[] = e.diags.map((diag: any) => ({

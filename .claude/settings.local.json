@@ -20,7 +20,8 @@
       "WebFetch(domain:observablehq.com)",
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:community.dbdiagram.io)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(timeout 15 bun run:*)"
     ]
   }
 }
