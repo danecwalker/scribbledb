@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Editor from '$lib/components/Editor.svelte';
   import Diagram from '$lib/components/Diagram.svelte';
   import ErrorBar from '$lib/components/ErrorBar.svelte';
@@ -102,9 +103,9 @@ Ref: comments.user_id > users.id`;
     }
   }
 
-  // Initial render
+  // Initial render (run once on mount, don't track source)
   $effect(() => {
-    updateDiagram(source);
+    untrack(() => updateDiagram(source));
   });
 </script>
 

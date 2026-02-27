@@ -108,25 +108,28 @@ export async function computeLayout(schema: ParsedSchema): Promise<LayoutResult>
     };
   });
 
-  const edges = schema.refs.map((ref, i) => {
+  // Build edges and track which refs survived filtering
+  const survivingRefs: SchemaRef[] = [];
+  const edges: { id: string; sources: string[]; targets: string[] }[] = [];
+
+  for (const ref of schema.refs) {
     const fromKey = `${ref.fromSchema}.${ref.fromTable}`;
     const toKey = `${ref.toSchema}.${ref.toTable}`;
     const fromTable = tableMap.get(fromKey);
     const toTable = tableMap.get(toKey);
 
-    if (!fromTable || !toTable) {
-      return null;
-    }
+    if (!fromTable || !toTable) continue;
 
     const fromCol = ref.fromColumns[0] || '';
     const toCol = ref.toColumns[0] || '';
 
-    return {
-      id: `e${i}`,
+    edges.push({
+      id: `e${edges.length}`,
       sources: [portId(fromTable, fromCol, 'right')],
       targets: [portId(toTable, toCol, 'left')],
-    };
-  }).filter((e): e is NonNullable<typeof e> => e !== null);
+    });
+    survivingRefs.push(ref);
+  }
 
   const graph = {
     id: 'root',
@@ -171,7 +174,7 @@ export async function computeLayout(schema: ParsedSchema): Promise<LayoutResult>
     }
     return {
       id: edge.id,
-      ref: schema.refs[i],
+      ref: survivingRefs[i],
       points,
     };
   });

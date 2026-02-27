@@ -1,5 +1,6 @@
 <!-- src/lib/components/Editor.svelte -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { EditorState } from '@codemirror/state';
   import { linter, lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
@@ -68,9 +69,11 @@
   });
 
   $effect(() => {
+    if (!container) return;
+    const initialValue = untrack(() => value);
     view = new EditorView({
       state: EditorState.create({
-        doc: value,
+        doc: initialValue,
         extensions: [
           basicSetup,
           dbmlLanguage,
