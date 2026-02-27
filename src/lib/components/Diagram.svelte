@@ -86,6 +86,21 @@
     return () => window.removeEventListener('click', onClick, true);
   });
 
+  // Download Image modal state
+  let downloadModalOpen = $state(false);
+  let dlFormat = $state<'svg' | 'png'>('png');
+  let dlTheme = $state<ImageTheme>('dark');
+  let dlBackground = $state<ImageBackground>('solid');
+
+  function handleDownloadImage() {
+    downloadModalOpen = false;
+    if (dlFormat === 'svg') {
+      exportSVG(dlTheme, dlBackground);
+    } else {
+      exportPNG(dlTheme, dlBackground);
+    }
+  }
+
   function showTooltip(e: MouseEvent, text: string) {
     const rect = containerEl.getBoundingClientRect();
     tooltip = {
@@ -524,16 +539,10 @@
       {/if}
     </div>
     <button
-      onclick={() => exportSVG()}
+      onclick={() => downloadModalOpen = true}
       class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
     >
-      SVG
-    </button>
-    <button
-      onclick={() => exportPNG()}
-      class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
-    >
-      PNG
+      Download Image
     </button>
     <button
       onclick={handleShare}
@@ -888,4 +897,81 @@
       {/if}
     </g>
   </svg>
+
+  {#if downloadModalOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      onclick={(e) => { if (e.target === e.currentTarget) downloadModalOpen = false; }}
+    >
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="relative rounded-lg bg-[#1e1e2e] border border-[#313244] shadow-2xl p-6 min-w-[320px]">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-semibold text-[#cdd6f4]">Download Image</h3>
+          <button
+            onclick={() => downloadModalOpen = false}
+            class="text-[#6c7086] hover:text-[#cdd6f4] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Format -->
+        <div class="mb-4">
+          <label class="block text-xs text-[#a6adc8] mb-2">Format</label>
+          <div class="flex gap-2">
+            <button
+              onclick={() => dlFormat = 'svg'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlFormat === 'svg' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >SVG</button>
+            <button
+              onclick={() => dlFormat = 'png'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlFormat === 'png' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >PNG</button>
+          </div>
+        </div>
+
+        <!-- Theme -->
+        <div class="mb-4">
+          <label class="block text-xs text-[#a6adc8] mb-2">Theme</label>
+          <div class="flex gap-2">
+            <button
+              onclick={() => dlTheme = 'dark'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlTheme === 'dark' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >Dark</button>
+            <button
+              onclick={() => dlTheme = 'light'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlTheme === 'light' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >Light</button>
+          </div>
+        </div>
+
+        <!-- Background -->
+        <div class="mb-5">
+          <label class="block text-xs text-[#a6adc8] mb-2">Background</label>
+          <div class="flex gap-2">
+            <button
+              onclick={() => dlBackground = 'solid'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlBackground === 'solid' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >Solid</button>
+            <button
+              onclick={() => dlBackground = 'transparent'}
+              class="flex-1 rounded px-3 py-1.5 text-xs transition-colors {dlBackground === 'transparent' ? 'bg-[#89b4fa] text-[#1e1e2e] font-semibold' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+            >Transparent</button>
+          </div>
+        </div>
+
+        <!-- Download button -->
+        <button
+          onclick={handleDownloadImage}
+          class="w-full rounded bg-[#89b4fa] px-4 py-2 text-sm font-semibold text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
