@@ -1,5 +1,16 @@
 // src/lib/dbml/parser.ts
-import { Parser, ModelExporter } from '@dbml/core';
+// Lazy-load @dbml/core (~15 MB) to keep it in a separate chunk
+let _Parser: any;
+let _ModelExporter: any;
+
+async function getDbmlCore() {
+  if (!_Parser) {
+    const mod = await import('@dbml/core');
+    _Parser = mod.Parser;
+    _ModelExporter = mod.ModelExporter;
+  }
+  return { Parser: _Parser, ModelExporter: _ModelExporter };
+}
 
 export interface SchemaColumn {
   name: string;
@@ -65,8 +76,9 @@ export type ParseResult =
   | { ok: true; schema: ParsedSchema }
   | { ok: false; errors: ParseError[] };
 
-export function parseDBML(source: string): ParseResult {
+export async function parseDBML(source: string): Promise<ParseResult> {
   try {
+    const { Parser } = await getDbmlCore();
     const parser = new Parser();
     const database = parser.parse(source, 'dbml');
 
@@ -156,7 +168,8 @@ export function parseDBML(source: string): ParseResult {
 
 export type ExportFormat = 'mysql' | 'postgres' | 'oracle' | 'dbml' | 'mssql' | 'json';
 
-export function exportDBML(source: string, format: ExportFormat): string {
+export async function exportDBML(source: string, format: ExportFormat): Promise<string> {
+  const { Parser, ModelExporter } = await getDbmlCore();
   const parser = new Parser();
   const database = parser.parse(source, 'dbml');
   return ModelExporter.export(database, format);

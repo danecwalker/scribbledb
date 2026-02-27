@@ -62,10 +62,10 @@
     { format: 'json', label: 'JSON', ext: '.json' },
   ];
 
-  function handleExport(format: ExportFormat, ext: string) {
+  async function handleExport(format: ExportFormat, ext: string) {
     exportOpen = false;
     try {
-      const result = exportDBML(source, format);
+      const result = await exportDBML(source, format);
       const mime = ext === '.json' ? 'application/json' : 'text/plain';
       const blob = new Blob([result], { type: `${mime};charset=utf-8` });
       triggerDownload(blob, `schema${ext}`);

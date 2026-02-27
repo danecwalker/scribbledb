@@ -302,8 +302,8 @@ Ref: reviews.customer_id > customers.id
 
   let lastParsedSchema: import('$lib/dbml/parser').ParsedSchema | null = null;
 
-  function parseSource(dbml: string) {
-    const result = parseDBML(dbml);
+  async function parseSource(dbml: string) {
+    const result = await parseDBML(dbml);
 
     if (result.ok) {
       parseErrors = [];
