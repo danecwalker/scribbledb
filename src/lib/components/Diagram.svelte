@@ -2,6 +2,7 @@
 <script lang="ts">
   import { headerHeight, wrapNoteText, NOTE_LINE_HEIGHT } from '$lib/dbml/layout';
   import type { LayoutResult, LayoutNode, LayoutEdge, LayoutGroup } from '$lib/dbml/layout';
+  import { exportDBML, type ExportFormat } from '$lib/dbml/parser';
   import { zoom, zoomIdentity } from 'd3-zoom';
   import { select } from 'd3-selection';
 
@@ -46,6 +47,43 @@
       nodeOffsets = {};
       prevLayout = layout;
     }
+  });
+
+  // Export dropdown state
+  let exportOpen = $state(false);
+  let exportBtnEl: HTMLDivElement;
+
+  const EXPORT_FORMATS: { format: ExportFormat; label: string; ext: string }[] = [
+    { format: 'postgres', label: 'PostgreSQL', ext: '.sql' },
+    { format: 'mysql', label: 'MySQL', ext: '.sql' },
+    { format: 'mssql', label: 'MSSQL', ext: '.sql' },
+    { format: 'oracle', label: 'Oracle', ext: '.sql' },
+    { format: 'dbml', label: 'DBML', ext: '.dbml' },
+    { format: 'json', label: 'JSON', ext: '.json' },
+  ];
+
+  function handleExport(format: ExportFormat, ext: string) {
+    exportOpen = false;
+    try {
+      const result = exportDBML(source, format);
+      const mime = ext === '.json' ? 'application/json' : 'text/plain';
+      const blob = new Blob([result], { type: `${mime};charset=utf-8` });
+      triggerDownload(blob, `schema${ext}`);
+    } catch (e: any) {
+      console.error('Export failed:', e);
+    }
+  }
+
+  // Close dropdown on click outside
+  $effect(() => {
+    if (!exportOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (exportBtnEl && !exportBtnEl.contains(e.target as Node)) {
+        exportOpen = false;
+      }
+    };
+    window.addEventListener('click', onClick, true);
+    return () => window.removeEventListener('click', onClick, true);
   });
 
   function showTooltip(e: MouseEvent, text: string) {
@@ -407,6 +445,31 @@
     >
       Fit
     </button>
+    <!-- Export SQL dropdown -->
+    <div class="relative" bind:this={exportBtnEl}>
+      <button
+        onclick={() => exportOpen = !exportOpen}
+        disabled={hasErrors}
+        class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Export SQL
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      {#if exportOpen}
+        <div class="absolute top-full right-0 mt-1 rounded bg-[#313244] border border-[#45475a] shadow-lg overflow-hidden z-20 min-w-[140px]">
+          {#each EXPORT_FORMATS as { format, label, ext }}
+            <button
+              onclick={() => handleExport(format, ext)}
+              class="block w-full text-left px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
+            >
+              {label}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
     <button
       onclick={exportSVG}
       class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
