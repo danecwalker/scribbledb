@@ -9,65 +9,88 @@
   import type { Diagnostic } from '@codemirror/lint';
   import type { Project } from '$lib/types';
 
-  const STORAGE_KEY = 'dbml-projects';
-  const ACTIVE_KEY = 'dbml-active-project';
+  const STORAGE_KEY = 'scribbledb-projects';
+  const ACTIVE_KEY = 'scribbledb-active-project';
 
-  const DEFAULT_DBML = `Table users {
+  const DEFAULT_DBML = `Table customers {
   id integer [pk, increment]
-  username varchar(255) [unique, not null, note: 'Display name']
   email varchar(255) [unique, not null]
-  role varchar [default: 'user', note: 'admin, user, or guest']
+  name varchar(255) [not null]
+  phone varchar(50)
   created_at timestamp [default: \`now()\`]
 
-  Note: 'Core identity table'
+  Note: 'Registered customers'
 }
 
-Table posts {
+Table products {
   id integer [pk, increment]
-  title varchar(255) [not null]
-  body text
-  user_id integer [not null]
-  status varchar [default: 'draft', note: 'draft, published, archived']
+  name varchar(255) [not null]
+  description text
+  price decimal(10,2) [not null]
+  sku varchar(100) [unique, not null, note: 'Stock keeping unit']
+  category_id integer [not null]
+  stock integer [default: 0]
   created_at timestamp [default: \`now()\`]
 
-  Note: 'Blog posts authored by users'
+  Note: 'Product catalog'
 }
 
-Table comments {
-  id integer [pk, increment]
-  body text [not null]
-  post_id integer [not null]
-  user_id integer [not null]
-  created_at timestamp [default: \`now()\`]
-}
-
-Table tags {
+Table categories {
   id integer [pk, increment]
   name varchar(100) [unique, not null]
+  parent_id integer [note: 'Self-referencing for subcategories']
 }
 
-Table post_tags {
-  post_id integer [not null]
-  tag_id integer [not null]
+Table orders {
+  id integer [pk, increment]
+  customer_id integer [not null]
+  status varchar [default: 'pending', note: 'pending, paid, shipped, delivered, cancelled']
+  total decimal(10,2) [not null]
+  shipping_address text [not null]
+  placed_at timestamp [default: \`now()\`]
 
-  Note: 'Many-to-many join table'
+  Note: 'Customer orders'
 }
 
-Ref: posts.user_id > users.id
-Ref: comments.post_id > posts.id
-Ref: comments.user_id > users.id
-Ref: post_tags.post_id > posts.id
-Ref: post_tags.tag_id > tags.id
+Table order_items {
+  id integer [pk, increment]
+  order_id integer [not null]
+  product_id integer [not null]
+  quantity integer [not null, default: 1]
+  unit_price decimal(10,2) [not null]
 
-TableGroup Content {
-  posts
-  comments
+  Note: 'Line items within an order'
 }
 
-TableGroup Taxonomy {
-  tags
-  post_tags
-}`;
+Table payments {
+  id integer [pk, increment]
+  order_id integer [not null]
+  method varchar [not null, note: 'card, paypal, bank_transfer']
+  amount decimal(10,2) [not null]
+  status varchar [default: 'pending', note: 'pending, completed, refunded']
+  paid_at timestamp
+
+  Note: 'Payment transactions'
+}
+
+Table reviews {
+  id integer [pk, increment]
+  product_id integer [not null]
+  customer_id integer [not null]
+  rating integer [not null, note: '1-5 stars']
+  body text
+  created_at timestamp [default: \`now()\`]
+}
+
+Ref: products.category_id > categories.id
+Ref: categories.parent_id > categories.id
+Ref: orders.customer_id > customers.id
+Ref: order_items.order_id > orders.id
+Ref: order_items.product_id > products.id
+Ref: payments.order_id > orders.id
+Ref: reviews.product_id > products.id
+Ref: reviews.customer_id > customers.id
+`;
 
   let projects: Project[] = $state([]);
   let activeProjectId: string | null = $state(null);
@@ -385,7 +408,7 @@ TableGroup Taxonomy {
 </script>
 
 <svelte:head>
-  <title>DBML Schema Builder</title>
+  <title>ScribbleDB</title>
 </svelte:head>
 
 <input
