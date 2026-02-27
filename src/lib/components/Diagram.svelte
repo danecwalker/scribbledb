@@ -117,6 +117,38 @@
   const HEADER_BG = '#252538';
   const BODY_BG = '#1e1e2e';
 
+  type ImageTheme = 'dark' | 'light';
+  type ImageBackground = 'solid' | 'transparent';
+
+  const THEME_COLORS = {
+    dark: {
+      canvasBg: '#11111b',
+      headerBg: '#252538',
+      bodyBg: '#1e1e2e',
+      text: '#cdd6f4',
+      mutedText: '#6c7086',
+      subtleText: '#7f849c',
+      border: '#313244',
+      edge: '#585b70',
+      pkText: '#f9e2af',
+      accentBubbleBg: '#313244',
+      accentBubbleBorder: '#45475a',
+    },
+    light: {
+      canvasBg: '#eff1f5',
+      headerBg: '#e6e9ef',
+      bodyBg: '#ffffff',
+      text: '#4c4f69',
+      mutedText: '#8c8fa1',
+      subtleText: '#7c7f93',
+      border: '#ccd0da',
+      edge: '#9ca0b0',
+      pkText: '#df8e1d',
+      accentBubbleBg: '#e6e9ef',
+      accentBubbleBorder: '#ccd0da',
+    },
+  } as const;
+
   const TABLE_COLORS = [
     '#89b4fa', '#a6e3a1', '#f9e2af', '#f38ba8',
     '#cba6f7', '#fab387', '#94e2d5', '#74c7ec',
@@ -297,7 +329,7 @@
     URL.revokeObjectURL(url);
   }
 
-  function buildCleanSVG(): string {
+  function buildCleanSVG(theme: ImageTheme = 'dark', background: ImageBackground = 'solid'): string {
     const clone = svgEl.cloneNode(true) as SVGSVGElement;
     const box = gEl.getBBox();
     const pad = 40;
@@ -315,14 +347,16 @@
     const defs = clone.querySelector('defs');
     if (defs) defs.remove();
 
-    // Add a solid background rect
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', String(box.x - pad));
-    bg.setAttribute('y', String(box.y - pad));
-    bg.setAttribute('width', String(box.width + pad * 2));
-    bg.setAttribute('height', String(box.height + pad * 2));
-    bg.setAttribute('fill', '#11111b');
-    clone.insertBefore(bg, clone.firstChild);
+    // Add a solid background rect (or skip for transparent)
+    if (background === 'solid') {
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('x', String(box.x - pad));
+      bg.setAttribute('y', String(box.y - pad));
+      bg.setAttribute('width', String(box.width + pad * 2));
+      bg.setAttribute('height', String(box.height + pad * 2));
+      bg.setAttribute('fill', THEME_COLORS[theme].canvasBg);
+      clone.insertBefore(bg, clone.firstChild);
+    }
 
     // Reset the <g> transform to identity (viewBox handles positioning)
     const g = clone.querySelector('g');
@@ -342,19 +376,38 @@
     // Add xmlns for standalone SVG
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-    return new XMLSerializer().serializeToString(clone);
+    let svgString = new XMLSerializer().serializeToString(clone);
+
+    // Remap colors for light theme
+    if (theme === 'light') {
+      const dark = THEME_COLORS.dark;
+      const light = THEME_COLORS.light;
+      svgString = svgString
+        .replaceAll(dark.headerBg, light.headerBg)
+        .replaceAll(dark.bodyBg, light.bodyBg)
+        .replaceAll(dark.text, light.text)
+        .replaceAll(dark.mutedText, light.mutedText)
+        .replaceAll(dark.subtleText, light.subtleText)
+        .replaceAll(dark.border, light.border)
+        .replaceAll(dark.edge, light.edge)
+        .replaceAll(dark.pkText, light.pkText)
+        .replaceAll(dark.accentBubbleBg, light.accentBubbleBg)
+        .replaceAll(dark.accentBubbleBorder, light.accentBubbleBorder);
+    }
+
+    return svgString;
   }
 
-  function exportSVG() {
+  function exportSVG(theme: ImageTheme = 'dark', background: ImageBackground = 'solid') {
     if (!svgEl || !gEl) return;
-    const svgString = buildCleanSVG();
+    const svgString = buildCleanSVG(theme, background);
     const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     triggerDownload(blob, 'diagram.svg');
   }
 
-  function exportPNG() {
+  function exportPNG(theme: ImageTheme = 'dark', background: ImageBackground = 'solid') {
     if (!svgEl || !gEl) return;
-    const svgString = buildCleanSVG();
+    const svgString = buildCleanSVG(theme, background);
     const box = gEl.getBBox();
     const pad = 40;
     const scale = 2; // retina
@@ -471,13 +524,13 @@
       {/if}
     </div>
     <button
-      onclick={exportSVG}
+      onclick={() => exportSVG()}
       class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
     >
       SVG
     </button>
     <button
-      onclick={exportPNG}
+      onclick={() => exportPNG()}
       class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
     >
       PNG
