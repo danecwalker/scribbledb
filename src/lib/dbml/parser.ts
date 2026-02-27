@@ -172,5 +172,27 @@ export async function exportDBML(source: string, format: ExportFormat): Promise<
   const { Parser, ModelExporter } = await getDbmlCore();
   const parser = new Parser();
   const database = parser.parse(source, 'dbml');
+
+  // Fix jsonb/json defaults for PostgreSQL: wrap string defaults as '...'::type
+  if (format === 'postgres') {
+    for (const schema of database.schemas) {
+      for (const table of schema.tables) {
+        for (const field of table.fields) {
+          const typeName = field.type?.type_name?.toLowerCase();
+          if (
+            (typeName === 'jsonb' || typeName === 'json') &&
+            field.dbdefault &&
+            field.dbdefault.type === 'string'
+          ) {
+            field.dbdefault = {
+              value: `'${field.dbdefault.value}'::${typeName}`,
+              type: 'expression',
+            };
+          }
+        }
+      }
+    }
+  }
+
   return ModelExporter.export(database, format);
 }
