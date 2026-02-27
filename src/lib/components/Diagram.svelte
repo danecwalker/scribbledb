@@ -900,6 +900,7 @@
 
   {#if downloadModalOpen}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
       class="fixed inset-0 z-50 flex items-center justify-center"
       onclick={(e) => { if (e.target === e.currentTarget) downloadModalOpen = false; }}
@@ -911,6 +912,7 @@
           <h3 class="text-sm font-semibold text-[#cdd6f4]">Download Image</h3>
           <button
             onclick={() => downloadModalOpen = false}
+            aria-label="Close"
             class="text-[#6c7086] hover:text-[#cdd6f4] transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -921,7 +923,7 @@
 
         <!-- Format -->
         <div class="mb-4">
-          <label class="block text-xs text-[#a6adc8] mb-2">Format</label>
+          <span class="block text-xs text-[#a6adc8] mb-2">Format</span>
           <div class="flex gap-2">
             <button
               onclick={() => dlFormat = 'svg'}
@@ -936,7 +938,7 @@
 
         <!-- Theme -->
         <div class="mb-4">
-          <label class="block text-xs text-[#a6adc8] mb-2">Theme</label>
+          <span class="block text-xs text-[#a6adc8] mb-2">Theme</span>
           <div class="flex gap-2">
             <button
               onclick={() => dlTheme = 'dark'}
@@ -951,7 +953,7 @@
 
         <!-- Background -->
         <div class="mb-5">
-          <label class="block text-xs text-[#a6adc8] mb-2">Background</label>
+          <span class="block text-xs text-[#a6adc8] mb-2">Background</span>
           <div class="flex gap-2">
             <button
               onclick={() => dlBackground = 'solid'}
