@@ -469,7 +469,7 @@ TableGroup Taxonomy {
           </svg>
         </button>
       {/if}
-      <Diagram {layout} onlayout={runLayout} onshare={shareDiagram} />
+      <Diagram {layout} {source} hasErrors={parseErrors.length > 0} onlayout={runLayout} onshare={shareDiagram} />
     </div>
   </div>
 </div>

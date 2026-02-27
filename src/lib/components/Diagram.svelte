@@ -7,11 +7,13 @@
 
   interface Props {
     layout: LayoutResult | null;
+    source: string;
+    hasErrors: boolean;
     onlayout: () => void;
     onshare: () => Promise<void>;
   }
 
-  let { layout, onlayout, onshare }: Props = $props();
+  let { layout, source, hasErrors, onlayout, onshare }: Props = $props();
 
   // Share button "Copied!" toast state
   let shareCopied = $state(false);
