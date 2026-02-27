@@ -1,5 +1,5 @@
 // src/lib/dbml/parser.ts
-import { Parser } from '@dbml/core';
+import { Parser, ModelExporter } from '@dbml/core';
 
 export interface SchemaColumn {
   name: string;
@@ -152,4 +152,12 @@ export function parseDBML(source: string): ParseResult {
       errors: [{ message: e.message ?? 'Unknown parse error', line: 1, column: 1, severity: 'error' }],
     };
   }
+}
+
+export type ExportFormat = 'mysql' | 'postgres' | 'oracle' | 'dbml' | 'mssql' | 'json';
+
+export function exportDBML(source: string, format: ExportFormat): string {
+  const parser = new Parser();
+  const database = parser.parse(source, 'dbml');
+  return ModelExporter.export(database, format);
 }
