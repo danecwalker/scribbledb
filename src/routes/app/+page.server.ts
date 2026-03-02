@@ -1,8 +1,11 @@
 import { db } from '$lib/server/db';
-import { projects, subscriptions, plans } from '$lib/server/schema';
+import { projects } from '$lib/server/schema';
 import { eq, and, count, desc } from 'drizzle-orm';
 import { fail, redirect } from '@sveltejs/kit';
+import { generateId } from '$lib/server/id';
 import type { PageServerLoad, Actions } from './$types';
+
+const PROJECT_LIMIT = 3;
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) redirect(302, '/login');
@@ -13,26 +16,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     .where(eq(projects.userId, locals.user.id))
     .orderBy(desc(projects.updatedAt));
 
-  const sub = await db
-    .select({ planId: subscriptions.planId, status: subscriptions.status })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, locals.user.id))
-    .limit(1);
-
-  const plan = sub[0]
-    ? await db.select().from(plans).where(eq(plans.id, sub[0].planId)).limit(1)
-    : null;
-
   return {
     projects: userProjects,
-    plan: plan?.[0] ?? {
-      id: 'free',
-      name: 'free',
-      projectLimit: 3,
-      paddlePriceId: null,
-      createdAt: new Date(),
-    },
-    subscription: sub[0] ?? null,
+    projectLimit: PROJECT_LIMIT,
   };
 };
 
@@ -40,33 +26,19 @@ export const actions: Actions = {
   create: async ({ locals }) => {
     if (!locals.user) return fail(401);
 
-    // Check project limit
-    const sub = await db
-      .select({ planId: subscriptions.planId })
-      .from(subscriptions)
-      .where(eq(subscriptions.userId, locals.user.id))
-      .limit(1);
+    const [{ value: projectCount }] = await db
+      .select({ value: count() })
+      .from(projects)
+      .where(eq(projects.userId, locals.user.id));
 
-    const plan = sub[0]
-      ? await db.select().from(plans).where(eq(plans.id, sub[0].planId)).limit(1)
-      : null;
-
-    const limit = plan?.[0]?.projectLimit;
-    if (limit !== null && limit !== undefined) {
-      const [{ value: projectCount }] = await db
-        .select({ value: count() })
-        .from(projects)
-        .where(eq(projects.userId, locals.user.id));
-
-      if (projectCount >= limit) {
-        return fail(403, {
-          error: 'Project limit reached. Upgrade to Pro for unlimited projects.',
-        });
-      }
+    if (projectCount >= PROJECT_LIMIT) {
+      return fail(403, {
+        error: `Project limit reached (max ${PROJECT_LIMIT}).`,
+      });
     }
 
     const newProject = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       userId: locals.user.id,
       name: 'Untitled',
       source: '',

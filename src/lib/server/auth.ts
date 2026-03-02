@@ -1,31 +1,23 @@
 import { betterAuth } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { env } from '$env/dynamic/private';
 import { db } from './db';
 import * as schema from './schema';
-import { subscriptions } from './schema';
 
 export const auth = betterAuth({
+  baseURL: env.BETTER_AUTH_URL,
+  secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: 'pg',
-    schema,
+    schema: {
+      ...schema,
+      user: schema.users,
+      session: schema.sessions,
+      account: schema.accounts,
+      verification: schema.verifications,
+    },
   }),
   emailAndPassword: {
     enabled: true,
-  },
-  hooks: {
-    after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path.startsWith('/sign-up')) {
-        const newSession = ctx.context.newSession;
-        if (newSession) {
-          await db.insert(subscriptions).values({
-            id: crypto.randomUUID(),
-            userId: newSession.user.id,
-            planId: 'free',
-            status: 'active',
-          });
-        }
-      }
-    }),
   },
 });

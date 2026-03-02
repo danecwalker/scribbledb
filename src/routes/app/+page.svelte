@@ -10,7 +10,6 @@
   import { computeLayout, type LayoutResult, type LayoutDirection } from '$lib/dbml/layout';
   import type { Diagnostic } from '@codemirror/lint';
   import type { Project } from '$lib/types';
-  import { initializePaddle, type Paddle } from '@paddle/paddle-js';
 
   const DEFAULT_DBML = `Table customers {
   id integer [pk, increment]
@@ -101,34 +100,9 @@ Ref: reviews.customer_id > customers.id
   let diagnostics: Diagnostic[] = $state([]);
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
-  let showUpgradePrompt = $state(false);
+  let showLimitPrompt = $state(false);
   let showImportPrompt = $state(false);
   let localProjectsToImport: { id: string; name: string; source: string }[] = [];
-
-  let paddle: Paddle | undefined = $state();
-
-  $effect(() => {
-    const token = $page.data.paddleClientToken as string;
-    if (token) {
-      initializePaddle({
-        token,
-        environment: 'sandbox',
-      }).then((p) => {
-        if (p) paddle = p;
-      });
-    }
-  });
-
-  function openCheckout() {
-    showUpgradePrompt = false;
-    if (!paddle) return;
-    const user = ($page.data as any).user;
-    paddle.Checkout.open({
-      items: [{ priceId: ($page.data as any).paddlePriceId ?? '', quantity: 1 }],
-      customer: { email: user?.email },
-      customData: { userId: user?.id },
-    });
-  }
 
   let fileInput: HTMLInputElement;
 
@@ -159,50 +133,7 @@ Ref: reviews.customer_id > customers.id
         } catch {}
       }
 
-      // Check for shared diagram in URL hash
-      const hash = window.location.hash;
-      if (hash.startsWith('#share=')) {
-        const encoded = hash.slice('#share='.length);
-        decompressFromURL(encoded).then(async (dbml) => {
-          // Create the shared project on the server
-          const res = await fetch('?/create', {
-            method: 'POST',
-            body: new FormData(),
-            headers: { 'x-sveltekit-action': 'true' },
-          });
-          const result = await res.json();
-
-          if (result.type === 'success') {
-            await invalidateAll();
-            const refreshed = $page.data;
-            const newest = (refreshed.projects as Project[])?.[0];
-            if (newest) {
-              // Update the new project with shared diagram data
-              const form = new FormData();
-              form.set('id', newest.id);
-              form.set('name', 'Shared Diagram');
-              form.set('source', dbml);
-              await fetch('?/update', {
-                method: 'POST',
-                body: form,
-                headers: { 'x-sveltekit-action': 'true' },
-              });
-              await invalidateAll();
-              projects = ($page.data.projects as Project[]) ?? [];
-              const updated = projects.find((p) => p.id === newest.id);
-              if (updated) {
-                activeProjectId = updated.id;
-                source = updated.source;
-              }
-            }
-          }
-
-          history.replaceState(null, '', window.location.pathname);
-          runLayout();
-        });
-      } else {
-        runLayout();
-      }
+      runLayout();
     });
   });
 
@@ -227,7 +158,7 @@ Ref: reviews.customer_id > customers.id
         runLayout();
       }
     } else if (result.type === 'failure' && result.data?.error) {
-      showUpgradePrompt = true;
+      showLimitPrompt = true;
     }
   }
 
@@ -459,66 +390,9 @@ Ref: reviews.customer_id > customers.id
 
   // --- Share helpers ---
 
-  async function compressToURL(): Promise<string> {
-    const bytes = new TextEncoder().encode(source);
-    const cs = new CompressionStream('deflate-raw');
-    const writer = cs.writable.getWriter();
-    writer.write(bytes);
-    writer.close();
-    const chunks: Uint8Array[] = [];
-    const reader = cs.readable.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    let totalLen = 0;
-    for (const c of chunks) totalLen += c.length;
-    const compressed = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const c of chunks) {
-      compressed.set(c, offset);
-      offset += c.length;
-    }
-    // base64url encode
-    let binary = '';
-    for (const b of compressed) binary += String.fromCharCode(b);
-    const encoded = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    return `${window.location.origin}${window.location.pathname}#share=${encoded}`;
-  }
-
-  async function decompressFromURL(encoded: string): Promise<string> {
-    // base64url decode
-    let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-    const ds = new DecompressionStream('deflate-raw');
-    const writer = ds.writable.getWriter();
-    writer.write(bytes);
-    writer.close();
-    const chunks: Uint8Array[] = [];
-    const reader = ds.readable.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    let totalLen = 0;
-    for (const c of chunks) totalLen += c.length;
-    const decompressed = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const c of chunks) {
-      decompressed.set(c, offset);
-      offset += c.length;
-    }
-    return new TextDecoder().decode(decompressed);
-  }
-
   async function shareDiagram() {
-    const url = await compressToURL();
+    if (!activeProjectId) return;
+    const url = `${window.location.origin}/share/${activeProjectId}`;
     await navigator.clipboard.writeText(url);
   }
 
@@ -552,7 +426,7 @@ Ref: reviews.customer_id > customers.id
   <Sidebar
     {projects}
     activeId={activeProjectId}
-    projectLimit={($page.data.plan as any)?.projectLimit ?? 3}
+    projectLimit={($page.data.projectLimit as number) ?? 3}
     oncreate={createProject}
     onselect={selectProject}
     ondelete={deleteProject}
@@ -621,7 +495,7 @@ Ref: reviews.customer_id > customers.id
           </svg>
         </button>
       {/if}
-      <Diagram {layout} {source} hasErrors={parseErrors.length > 0} onlayout={runLayout} onshare={shareDiagram} />
+      <Diagram {layout} {source} hasErrors={parseErrors.length > 0} onlayout={runLayout} onshare={shareDiagram} projectId={activeProjectId} />
     </div>
   </div>
 
@@ -650,27 +524,19 @@ Ref: reviews.customer_id > customers.id
     </div>
   {/if}
 
-  {#if showUpgradePrompt}
+  {#if showLimitPrompt}
     <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
       <div class="rounded-lg bg-[#181825] p-6 border border-[#313244] max-w-sm text-center">
         <h2 class="text-lg font-semibold text-[#cdd6f4] mb-2">Project limit reached</h2>
         <p class="text-sm text-[#a6adc8] mb-4">
-          Free accounts can have up to 3 projects. Upgrade to Pro for unlimited projects.
+          You can have up to {($page.data.projectLimit as number) ?? 3} projects. Delete an existing project to create a new one.
         </p>
-        <div class="flex gap-3 justify-center">
-          <button
-            onclick={() => showUpgradePrompt = false}
-            class="rounded border border-[#313244] px-4 py-2 text-sm text-[#cdd6f4] hover:bg-[#313244]"
-          >
-            Cancel
-          </button>
-          <button
-            onclick={openCheckout}
-            class="rounded bg-[#89b4fa] px-4 py-2 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec]"
-          >
-            Upgrade to Pro
-          </button>
-        </div>
+        <button
+          onclick={() => showLimitPrompt = false}
+          class="rounded bg-[#313244] px-4 py-2 text-sm text-[#cdd6f4] hover:bg-[#45475a]"
+        >
+          OK
+        </button>
       </div>
     </div>
   {/if}

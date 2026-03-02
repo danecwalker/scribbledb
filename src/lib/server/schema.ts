@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, timestamp, boolean, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 
 // --- BetterAuth tables (managed by BetterAuth, defined here for Drizzle awareness) ---
 
@@ -53,29 +53,6 @@ export const verifications = pgTable('verifications', {
 });
 
 // --- App tables ---
-
-export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due']);
-
-export const plans = pgTable('plans', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-  projectLimit: integer('project_limit'), // null = unlimited
-  paddlePriceId: text('paddle_price_id'), // null for free plan
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-export const subscriptions = pgTable('subscriptions', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-  planId: text('plan_id').notNull().references(() => plans.id),
-  paddleSubscriptionId: text('paddle_subscription_id'),
-  paddleCustomerId: text('paddle_customer_id'),
-  status: subscriptionStatusEnum('status').notNull().default('active'),
-  currentPeriodStart: timestamp('current_period_start'),
-  currentPeriodEnd: timestamp('current_period_end'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
 
 export const projects = pgTable('projects', {
   id: text('id').primaryKey(),

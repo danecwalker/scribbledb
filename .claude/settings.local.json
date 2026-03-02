@@ -21,7 +21,9 @@
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:community.dbdiagram.io)",
       "Bash(git:*)",
-      "Bash(timeout 15 bun run:*)"
+      "Bash(timeout 15 bun run:*)",
+      "WebFetch(domain:www.better-auth.com)",
+      "WebFetch(domain:developer.paddle.com)"
     ]
   }
 }

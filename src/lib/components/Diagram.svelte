@@ -11,18 +11,32 @@
     source: string;
     hasErrors: boolean;
     onlayout: () => void;
-    onshare: () => Promise<void>;
+    onshare?: () => Promise<void>;
+    embed?: boolean;
+    projectId?: string | null;
   }
 
-  let { layout, source, hasErrors, onlayout, onshare }: Props = $props();
+  let { layout, source, hasErrors, onlayout, onshare, embed = false, projectId = null }: Props = $props();
 
   // Share button "Copied!" toast state
   let shareCopied = $state(false);
 
   async function handleShare() {
-    await onshare();
+    if (onshare) await onshare();
     shareCopied = true;
     setTimeout(() => shareCopied = false, 2000);
+  }
+
+  // Embed button "Copied!" toast state
+  let embedCopied = $state(false);
+
+  function handleEmbed() {
+    if (!projectId) return;
+    const origin = window.location.origin;
+    const snippet = `<iframe src="${origin}/embed/${projectId}" width="800" height="600" frameborder="0"></iframe>`;
+    navigator.clipboard.writeText(snippet);
+    embedCopied = true;
+    setTimeout(() => embedCopied = false, 2000);
   }
 
   let svgEl: SVGSVGElement;
@@ -501,55 +515,67 @@
 
 <div bind:this={containerEl} class="relative h-full w-full bg-[#11111b]">
   <div class="absolute top-3 right-3 z-10 flex gap-2">
-    <button
-      onclick={() => { onlayout(); }}
-      class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
-    >
-      Auto Layout
-    </button>
+    {#if !embed}
+      <button
+        onclick={() => { onlayout(); }}
+        class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
+      >
+        Auto Layout
+      </button>
+    {/if}
     <button
       onclick={() => fitToContent()}
       class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
     >
       Fit
     </button>
-    <!-- Export SQL dropdown -->
-    <div class="relative" bind:this={exportBtnEl}>
+    {#if !embed}
+      <!-- Export SQL dropdown -->
+      <div class="relative" bind:this={exportBtnEl}>
+        <button
+          onclick={() => exportOpen = !exportOpen}
+          disabled={hasErrors}
+          class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Export SQL
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        {#if exportOpen}
+          <div class="absolute top-full right-0 mt-1 rounded bg-[#313244] border border-[#45475a] shadow-lg overflow-hidden z-20 min-w-[140px]">
+            {#each EXPORT_FORMATS as { format, label, ext }}
+              <button
+                onclick={() => handleExport(format, ext)}
+                class="block w-full text-left px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
+              >
+                {label}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
       <button
-        onclick={() => exportOpen = !exportOpen}
-        disabled={hasErrors}
-        class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+        onclick={() => downloadModalOpen = true}
+        class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
       >
-        Export SQL
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-          <path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        Download Image
       </button>
-      {#if exportOpen}
-        <div class="absolute top-full right-0 mt-1 rounded bg-[#313244] border border-[#45475a] shadow-lg overflow-hidden z-20 min-w-[140px]">
-          {#each EXPORT_FORMATS as { format, label, ext }}
-            <button
-              onclick={() => handleExport(format, ext)}
-              class="block w-full text-left px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
-            >
-              {label}
-            </button>
-          {/each}
-        </div>
+      <button
+        onclick={handleShare}
+        class="rounded px-3 py-1.5 text-xs transition-colors {shareCopied ? 'bg-[#a6e3a1] text-[#1e1e2e]' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+      >
+        {shareCopied ? 'Copied!' : 'Share'}
+      </button>
+      {#if projectId}
+        <button
+          onclick={handleEmbed}
+          class="rounded px-3 py-1.5 text-xs transition-colors {embedCopied ? 'bg-[#a6e3a1] text-[#1e1e2e]' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
+        >
+          {embedCopied ? 'Copied!' : 'Embed'}
+        </button>
       {/if}
-    </div>
-    <button
-      onclick={() => downloadModalOpen = true}
-      class="rounded bg-[#313244] px-3 py-1.5 text-xs text-[#cdd6f4] hover:bg-[#45475a] transition-colors"
-    >
-      Download Image
-    </button>
-    <button
-      onclick={handleShare}
-      class="rounded px-3 py-1.5 text-xs transition-colors {shareCopied ? 'bg-[#a6e3a1] text-[#1e1e2e]' : 'bg-[#313244] text-[#cdd6f4] hover:bg-[#45475a]'}"
-    >
-      {shareCopied ? 'Copied!' : 'Share'}
-    </button>
+    {/if}
   </div>
 
   {#if tooltip}

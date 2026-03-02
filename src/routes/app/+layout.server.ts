@@ -8,7 +8,5 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
   return {
     user: locals.user,
-    paddleClientToken: process.env.PADDLE_CLIENT_TOKEN ?? '',
-    paddlePriceId: process.env.PADDLE_PRICE_ID_PRO ?? '',
   };
 };

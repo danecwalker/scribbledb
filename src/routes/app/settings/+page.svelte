@@ -38,27 +38,5 @@
       </button>
     </section>
 
-    <!-- Plan & Billing -->
-    <section class="rounded-lg bg-[#181825] p-6 border border-[#313244]">
-      <h2 class="mb-4 text-lg font-semibold text-[#cdd6f4]">Plan & Billing</h2>
-      <p class="text-sm text-[#a6adc8]">
-        Current plan: <span class="font-medium text-[#cdd6f4] capitalize">{(data.plan as any)?.name ?? 'Free'}</span>
-      </p>
-      {#if (data.plan as any)?.name === 'pro' && (data.subscription as any)?.paddleSubscriptionId}
-        <p class="mt-2 text-xs text-[#6c7086]">
-          Manage your subscription, invoices, and payment method through Paddle.
-        </p>
-      {:else}
-        <p class="mt-2 text-xs text-[#6c7086]">
-          Free plan: up to {(data.plan as any)?.projectLimit ?? 3} projects.
-        </p>
-        <a
-          href="/app"
-          class="mt-3 inline-block rounded bg-[#89b4fa] px-4 py-1.5 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors"
-        >
-          Upgrade to Pro
-        </a>
-      {/if}
-    </section>
   </div>
 </div>
