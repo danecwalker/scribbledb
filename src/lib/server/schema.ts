@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, text, integer, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 
 // --- BetterAuth tables (managed by BetterAuth, defined here for Drizzle awareness) ---
 
@@ -21,7 +21,9 @@ export const sessions = pgTable('sessions', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => [
+  index('sessions_user_id_idx').on(table.userId),
+]);
 
 export const accounts = pgTable('accounts', {
   id: text('id').primaryKey(),
@@ -37,7 +39,9 @@ export const accounts = pgTable('accounts', {
   password: text('password'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => [
+  index('accounts_user_id_idx').on(table.userId),
+]);
 
 export const verifications = pgTable('verifications', {
   id: text('id').primaryKey(),
@@ -49,6 +53,8 @@ export const verifications = pgTable('verifications', {
 });
 
 // --- App tables ---
+
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'canceled', 'past_due']);
 
 export const plans = pgTable('plans', {
   id: text('id').primaryKey(),
@@ -64,7 +70,7 @@ export const subscriptions = pgTable('subscriptions', {
   planId: text('plan_id').notNull().references(() => plans.id),
   paddleSubscriptionId: text('paddle_subscription_id'),
   paddleCustomerId: text('paddle_customer_id'),
-  status: text('status').notNull().default('active'), // active, canceled, past_due
+  status: subscriptionStatusEnum('status').notNull().default('active'),
   currentPeriodStart: timestamp('current_period_start'),
   currentPeriodEnd: timestamp('current_period_end'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -78,4 +84,6 @@ export const projects = pgTable('projects', {
   source: text('source').notNull().default(''),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+}, (table) => [
+  index('projects_user_id_idx').on(table.userId),
+]);
