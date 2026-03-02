@@ -14,7 +14,24 @@ function verifySignature(rawBody: string, signature: string): boolean {
 
   const payload = `${ts}:${rawBody}`;
   const expected = crypto.createHmac('sha256', WEBHOOK_SECRET).update(payload).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(h1), Buffer.from(expected));
+  const h1Buffer = Buffer.from(h1);
+  const expectedBuffer = Buffer.from(expected);
+  if (h1Buffer.length !== expectedBuffer.length) return false;
+  return crypto.timingSafeEqual(h1Buffer, expectedBuffer);
+}
+
+function mapPaddleStatus(paddleStatus: string): 'active' | 'canceled' | 'past_due' {
+  switch (paddleStatus) {
+    case 'active':
+    case 'trialing':
+      return 'active';
+    case 'canceled':
+      return 'canceled';
+    case 'past_due':
+      return 'past_due';
+    default:
+      return 'active';
+  }
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -40,7 +57,7 @@ export const POST: RequestHandler = async ({ request }) => {
           planId: 'pro',
           paddleSubscriptionId: data.id,
           paddleCustomerId: data.customer_id,
-          status: data.status === 'active' ? 'active' : data.status,
+          status: mapPaddleStatus(data.status),
           currentPeriodStart: new Date(data.current_billing_period.starts_at),
           currentPeriodEnd: new Date(data.current_billing_period.ends_at),
           updatedAt: new Date(),
