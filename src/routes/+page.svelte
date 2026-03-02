@@ -1,3 +1,9 @@
+<script lang="ts">
+  import { page } from '$app/stores';
+
+  const user = $derived(($page.data as any).user);
+</script>
+
 <svelte:head>
   <title>ScribbleDB - Design Database Schemas Visually</title>
 </svelte:head>
@@ -8,17 +14,26 @@
     Design and visualize database schemas with DBML. Write markup, see diagrams instantly.
   </p>
   <div class="flex gap-4">
-    <a
-      href="/signup"
-      class="rounded bg-[#89b4fa] px-6 py-2.5 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors"
-    >
-      Get Started Free
-    </a>
-    <a
-      href="/login"
-      class="rounded border border-[#313244] px-6 py-2.5 text-sm font-medium text-[#cdd6f4] hover:bg-[#313244] transition-colors"
-    >
-      Log In
-    </a>
+    {#if user}
+      <a
+        href="/app"
+        class="rounded bg-[#89b4fa] px-6 py-2.5 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors"
+      >
+        Go to App
+      </a>
+    {:else}
+      <a
+        href="/signup"
+        class="rounded bg-[#89b4fa] px-6 py-2.5 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec] transition-colors"
+      >
+        Get Started Free
+      </a>
+      <a
+        href="/login"
+        class="rounded border border-[#313244] px-6 py-2.5 text-sm font-medium text-[#cdd6f4] hover:bg-[#313244] transition-colors"
+      >
+        Log In
+      </a>
+    {/if}
   </div>
 </div>

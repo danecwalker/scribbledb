@@ -106,4 +106,11 @@
       </div>
     {/each}
   </div>
+
+  <!-- Footer -->
+  <div class="border-t border-[#313244] px-3 py-2">
+    <a href="/app/settings" class="block text-xs text-[#a6adc8] hover:text-[#cdd6f4] py-1 transition-colors">
+      Settings
+    </a>
+  </div>
 </div>
