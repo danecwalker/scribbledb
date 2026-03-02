@@ -10,6 +10,7 @@
   import { computeLayout, type LayoutResult, type LayoutDirection } from '$lib/dbml/layout';
   import type { Diagnostic } from '@codemirror/lint';
   import type { Project } from '$lib/types';
+  import { initializePaddle, type Paddle } from '@paddle/paddle-js';
 
   const DEFAULT_DBML = `Table customers {
   id integer [pk, increment]
@@ -101,6 +102,31 @@ Ref: reviews.customer_id > customers.id
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let showUpgradePrompt = $state(false);
+
+  let paddle: Paddle | undefined = $state();
+
+  $effect(() => {
+    const token = $page.data.paddleClientToken as string;
+    if (token) {
+      initializePaddle({
+        token,
+        environment: 'sandbox',
+      }).then((p) => {
+        if (p) paddle = p;
+      });
+    }
+  });
+
+  function openCheckout() {
+    showUpgradePrompt = false;
+    if (!paddle) return;
+    const user = ($page.data as any).user;
+    paddle.Checkout.open({
+      items: [{ priceId: ($page.data as any).paddlePriceId ?? '', quantity: 1 }],
+      customer: { email: user?.email },
+      customData: { userId: user?.id },
+    });
+  }
 
   let fileInput: HTMLInputElement;
 
@@ -462,11 +488,12 @@ Ref: reviews.customer_id > customers.id
   onchange={handleFileSelect}
 />
 
-<div class="flex h-screen w-screen" class:select-none={isDragging}>
+<div class="relative flex h-screen w-screen" class:select-none={isDragging}>
   <!-- Sidebar -->
   <Sidebar
     {projects}
     activeId={activeProjectId}
+    projectLimit={($page.data.plan as any)?.projectLimit ?? 3}
     oncreate={createProject}
     onselect={selectProject}
     ondelete={deleteProject}
@@ -538,4 +565,29 @@ Ref: reviews.customer_id > customers.id
       <Diagram {layout} {source} hasErrors={parseErrors.length > 0} onlayout={runLayout} onshare={shareDiagram} />
     </div>
   </div>
+
+  {#if showUpgradePrompt}
+    <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div class="rounded-lg bg-[#181825] p-6 border border-[#313244] max-w-sm text-center">
+        <h2 class="text-lg font-semibold text-[#cdd6f4] mb-2">Project limit reached</h2>
+        <p class="text-sm text-[#a6adc8] mb-4">
+          Free accounts can have up to 3 projects. Upgrade to Pro for unlimited projects.
+        </p>
+        <div class="flex gap-3 justify-center">
+          <button
+            onclick={() => showUpgradePrompt = false}
+            class="rounded border border-[#313244] px-4 py-2 text-sm text-[#cdd6f4] hover:bg-[#313244]"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={openCheckout}
+            class="rounded bg-[#89b4fa] px-4 py-2 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec]"
+          >
+            Upgrade to Pro
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

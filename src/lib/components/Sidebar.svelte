@@ -5,13 +5,14 @@
   interface Props {
     projects: Project[];
     activeId: string | null;
+    projectLimit: number | null;
     oncreate: () => void;
     onselect: (id: string) => void;
     ondelete: (id: string) => void;
     onrename: (id: string, name: string) => void;
   }
 
-  let { projects, activeId, oncreate, onselect, ondelete, onrename }: Props = $props();
+  let { projects, activeId, projectLimit, oncreate, onselect, ondelete, onrename }: Props = $props();
 
   let editingId: string | null = $state(null);
   let editingName = $state('');
@@ -48,7 +49,12 @@
 <div class="flex flex-col h-full w-[220px] min-w-[220px] bg-[#181825] border-r border-[#313244]">
   <!-- Header -->
   <div class="flex items-center justify-between px-3 py-2 border-b border-[#313244]">
-    <span class="text-xs font-semibold text-[#a6adc8] uppercase tracking-wider">Projects</span>
+    <div class="flex flex-col">
+      <span class="text-xs font-semibold text-[#a6adc8] uppercase tracking-wider">Projects</span>
+      <span class="text-[10px] text-[#6c7086]">
+        {projects.length}{projectLimit !== null ? `/${projectLimit}` : ''} projects
+      </span>
+    </div>
     <button
       onclick={oncreate}
       class="flex items-center justify-center w-5 h-5 rounded text-[#a6adc8] hover:bg-[#313244] hover:text-[#cdd6f4] transition-colors"
