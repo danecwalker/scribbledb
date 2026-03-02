@@ -102,6 +102,8 @@ Ref: reviews.customer_id > customers.id
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let showUpgradePrompt = $state(false);
+  let showImportPrompt = $state(false);
+  let localProjectsToImport: { id: string; name: string; source: string }[] = [];
 
   let paddle: Paddle | undefined = $state();
 
@@ -142,6 +144,19 @@ Ref: reviews.customer_id > customers.id
       if (projects.length > 0) {
         activeProjectId = projects[0].id;
         source = projects[0].source;
+      } else {
+        // No server projects — check localStorage for data to import
+        try {
+          const raw = localStorage.getItem('scribbledb-projects');
+          if (raw) {
+            const local = JSON.parse(raw);
+            if (Array.isArray(local) && local.length > 0) {
+              localProjectsToImport = local;
+              showImportPrompt = true;
+              return; // wait for user decision
+            }
+          }
+        } catch {}
       }
 
       // Check for shared diagram in URL hash
@@ -225,6 +240,50 @@ Ref: reviews.customer_id > customers.id
       source = project.source;
       runLayout();
     }
+  }
+
+  async function importLocalProjects() {
+    for (const lp of localProjectsToImport) {
+      const createForm = new FormData();
+      const res = await fetch('?/create', {
+        method: 'POST',
+        body: createForm,
+        headers: { 'x-sveltekit-action': 'true' },
+      });
+      const result = await res.json();
+      if (result.type === 'success') {
+        await invalidateAll();
+        const newest = ($page.data.projects as Project[])?.[0];
+        if (newest) {
+          const updateForm = new FormData();
+          updateForm.set('id', newest.id);
+          updateForm.set('name', lp.name || 'Imported');
+          updateForm.set('source', lp.source || '');
+          await fetch('?/update', {
+            method: 'POST',
+            body: updateForm,
+            headers: { 'x-sveltekit-action': 'true' },
+          });
+        }
+      }
+    }
+    localStorage.removeItem('scribbledb-projects');
+    localStorage.removeItem('scribbledb-active-project');
+    showImportPrompt = false;
+    await invalidateAll();
+    projects = ($page.data.projects as Project[]) ?? [];
+    if (projects.length > 0) {
+      activeProjectId = projects[0].id;
+      source = projects[0].source;
+    }
+    runLayout();
+  }
+
+  function skipImport() {
+    showImportPrompt = false;
+    localProjectsToImport = [];
+    // Create a default project for the new user
+    createProject();
   }
 
   async function deleteProject(id: string) {
@@ -565,6 +624,31 @@ Ref: reviews.customer_id > customers.id
       <Diagram {layout} {source} hasErrors={parseErrors.length > 0} onlayout={runLayout} onshare={shareDiagram} />
     </div>
   </div>
+
+  {#if showImportPrompt}
+    <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div class="rounded-lg bg-[#181825] p-6 border border-[#313244] max-w-sm">
+        <h2 class="text-lg font-semibold text-[#cdd6f4] mb-2">Import local projects?</h2>
+        <p class="text-sm text-[#a6adc8] mb-4">
+          Found {localProjectsToImport.length} project{localProjectsToImport.length === 1 ? '' : 's'} saved in this browser. Import them to your account?
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button
+            onclick={skipImport}
+            class="rounded border border-[#313244] px-4 py-2 text-sm text-[#cdd6f4] hover:bg-[#313244]"
+          >
+            Skip
+          </button>
+          <button
+            onclick={importLocalProjects}
+            class="rounded bg-[#89b4fa] px-4 py-2 text-sm font-medium text-[#1e1e2e] hover:bg-[#74c7ec]"
+          >
+            Import
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if showUpgradePrompt}
     <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
