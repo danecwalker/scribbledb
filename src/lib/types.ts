@@ -2,5 +2,7 @@ export interface Project {
   id: string;
   name: string;
   source: string;
-  updatedAt: number;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

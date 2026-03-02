@@ -19,7 +19,7 @@
 
   // Sort projects by updatedAt descending (most recent first)
   let sorted = $derived(
-    [...projects].sort((a, b) => b.updatedAt - a.updatedAt)
+    [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   );
 
   function startRename(project: Project) {

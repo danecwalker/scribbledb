@@ -1,5 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { page } from '$app/stores';
+  import { invalidateAll } from '$app/navigation';
   import Editor from '$lib/components/Editor.svelte';
   import Diagram from '$lib/components/Diagram.svelte';
   import ErrorBar from '$lib/components/ErrorBar.svelte';
@@ -8,9 +10,6 @@
   import { computeLayout, type LayoutResult, type LayoutDirection } from '$lib/dbml/layout';
   import type { Diagnostic } from '@codemirror/lint';
   import type { Project } from '$lib/types';
-
-  const STORAGE_KEY = 'scribbledb-projects';
-  const ACTIVE_KEY = 'scribbledb-active-project';
 
   const DEFAULT_DBML = `Table customers {
   id integer [pk, increment]
@@ -94,85 +93,69 @@ Ref: reviews.customer_id > customers.id
 
   let projects: Project[] = $state([]);
   let activeProjectId: string | null = $state(null);
-  let source = $state(DEFAULT_DBML);
+  let source = $state('');
   let direction: LayoutDirection = $state('RIGHT');
   let layout: LayoutResult | null = $state(null);
   let parseErrors: ParseError[] = $state([]);
   let diagnostics: Diagnostic[] = $state([]);
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let showUpgradePrompt = $state(false);
 
   let fileInput: HTMLInputElement;
 
-  // --- localStorage helpers ---
-
-  function saveProjects() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-  }
-
-  function saveActiveId() {
-    if (activeProjectId) {
-      localStorage.setItem(ACTIVE_KEY, activeProjectId);
-    } else {
-      localStorage.removeItem(ACTIVE_KEY);
-    }
-  }
-
-  // --- Load from localStorage on mount ---
+  // --- Initialize from server data on mount ---
 
   $effect(() => {
     untrack(() => {
-      let stored: Project[] = [];
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) stored = JSON.parse(raw);
-      } catch {}
+      const data = $page.data;
+      if (!data.projects) return;
 
-      if (stored.length === 0) {
-        // Create default project
-        const defaultProject: Project = {
-          id: crypto.randomUUID(),
-          name: 'Untitled',
-          source: DEFAULT_DBML,
-          updatedAt: Date.now(),
-        };
-        stored = [defaultProject];
+      projects = data.projects as Project[];
+
+      if (projects.length > 0) {
+        activeProjectId = projects[0].id;
+        source = projects[0].source;
       }
-
-      projects = stored;
-      saveProjects();
-
-      // Restore active project
-      const savedActiveId = localStorage.getItem(ACTIVE_KEY);
-      const activeProject = savedActiveId
-        ? stored.find((p) => p.id === savedActiveId)
-        : null;
-
-      if (activeProject) {
-        activeProjectId = activeProject.id;
-        source = activeProject.source;
-      } else {
-        // Fall back to first project
-        activeProjectId = stored[0].id;
-        source = stored[0].source;
-      }
-      saveActiveId();
 
       // Check for shared diagram in URL hash
       const hash = window.location.hash;
       if (hash.startsWith('#share=')) {
         const encoded = hash.slice('#share='.length);
-        decompressFromURL(encoded).then((dbml) => {
-          const sharedProject: Project = {
-            id: crypto.randomUUID(),
-            name: 'Shared Diagram',
-            source: dbml,
-            updatedAt: Date.now(),
-          };
-          projects = [...projects, sharedProject];
-          activeProjectId = sharedProject.id;
-          source = sharedProject.source;
-          saveProjects();
-          saveActiveId();
+        decompressFromURL(encoded).then(async (dbml) => {
+          // Create the shared project on the server
+          const res = await fetch('?/create', {
+            method: 'POST',
+            body: new FormData(),
+            headers: { 'x-sveltekit-action': 'true' },
+          });
+          const result = await res.json();
+
+          if (result.type === 'success') {
+            await invalidateAll();
+            const refreshed = $page.data;
+            const newest = (refreshed.projects as Project[])?.[0];
+            if (newest) {
+              // Update the new project with shared diagram data
+              const form = new FormData();
+              form.set('id', newest.id);
+              form.set('name', 'Shared Diagram');
+              form.set('source', dbml);
+              await fetch('?/update', {
+                method: 'POST',
+                body: form,
+                headers: { 'x-sveltekit-action': 'true' },
+              });
+              await invalidateAll();
+              projects = ($page.data.projects as Project[]) ?? [];
+              const updated = projects.find((p) => p.id === newest.id);
+              if (updated) {
+                activeProjectId = updated.id;
+                source = updated.source;
+              }
+            }
+          }
+
           history.replaceState(null, '', window.location.pathname);
           runLayout();
         });
@@ -182,21 +165,29 @@ Ref: reviews.customer_id > customers.id
     });
   });
 
-  // --- Project CRUD ---
+  // --- Server-backed Project CRUD ---
 
-  function createProject() {
-    const newProject: Project = {
-      id: crypto.randomUUID(),
-      name: 'Untitled',
-      source: '',
-      updatedAt: Date.now(),
-    };
-    projects = [...projects, newProject];
-    activeProjectId = newProject.id;
-    source = newProject.source;
-    saveProjects();
-    saveActiveId();
-    runLayout();
+  async function createProject() {
+    const res = await fetch('?/create', {
+      method: 'POST',
+      body: new FormData(),
+      headers: { 'x-sveltekit-action': 'true' },
+    });
+    const result = await res.json();
+
+    if (result.type === 'success') {
+      await invalidateAll();
+      const data = $page.data;
+      projects = (data.projects as Project[]) ?? [];
+      const newest = projects[0];
+      if (newest) {
+        activeProjectId = newest.id;
+        source = newest.source;
+        runLayout();
+      }
+    } else if (result.type === 'failure' && result.data?.error) {
+      showUpgradePrompt = true;
+    }
   }
 
   function selectProject(id: string) {
@@ -205,31 +196,42 @@ Ref: reviews.customer_id > customers.id
     const project = projects.find((p) => p.id === id);
     if (project) {
       source = project.source;
-      saveActiveId();
       runLayout();
     }
   }
 
-  function deleteProject(id: string) {
+  async function deleteProject(id: string) {
     if (projects.length <= 1) return;
-    const idx = projects.findIndex((p) => p.id === id);
-    projects = projects.filter((p) => p.id !== id);
-    if (id === activeProjectId) {
-      // Switch to next or previous project
-      const newIdx = Math.min(idx, projects.length - 1);
-      activeProjectId = projects[newIdx].id;
-      source = projects[newIdx].source;
+    const form = new FormData();
+    form.set('id', id);
+    await fetch('?/delete', {
+      method: 'POST',
+      body: form,
+      headers: { 'x-sveltekit-action': 'true' },
+    });
+
+    await invalidateAll();
+    const data = $page.data;
+    projects = (data.projects as Project[]) ?? [];
+    if (id === activeProjectId && projects.length > 0) {
+      activeProjectId = projects[0].id;
+      source = projects[0].source;
       runLayout();
     }
-    saveProjects();
-    saveActiveId();
   }
 
-  function renameProject(id: string, name: string) {
-    projects = projects.map((p) =>
-      p.id === id ? { ...p, name, updatedAt: Date.now() } : p
-    );
-    saveProjects();
+  async function renameProject(id: string, name: string) {
+    // Update local state immediately for responsiveness
+    projects = projects.map((p) => (p.id === id ? { ...p, name } : p));
+
+    const form = new FormData();
+    form.set('id', id);
+    form.set('name', name);
+    await fetch('?/update', {
+      method: 'POST',
+      body: form,
+      headers: { 'x-sveltekit-action': 'true' },
+    });
   }
 
   // --- File import ---
@@ -282,16 +284,29 @@ Ref: reviews.customer_id > customers.id
   // --- Source change + auto-save ---
 
   function handleSourceChange(newSource: string) {
-    // Auto-save to active project
+    // Update local state immediately
     if (activeProjectId) {
       projects = projects.map((p) =>
-        p.id === activeProjectId
-          ? { ...p, source: newSource, updatedAt: Date.now() }
-          : p
+        p.id === activeProjectId ? { ...p, source: newSource } : p
       );
-      saveProjects();
     }
 
+    // Debounced server save
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (activeProjectId) {
+        const form = new FormData();
+        form.set('id', activeProjectId);
+        form.set('source', newSource);
+        fetch('?/update', {
+          method: 'POST',
+          body: form,
+          headers: { 'x-sveltekit-action': 'true' },
+        });
+      }
+    }, 1000);
+
+    // Debounced parse
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       parseSource(newSource);
