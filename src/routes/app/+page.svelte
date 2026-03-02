@@ -192,6 +192,7 @@ Ref: reviews.customer_id > customers.id
 
   function selectProject(id: string) {
     if (id === activeProjectId) return;
+    flushPendingSave();
     activeProjectId = id;
     const project = projects.find((p) => p.id === id);
     if (project) {
@@ -283,25 +284,52 @@ Ref: reviews.customer_id > customers.id
 
   // --- Source change + auto-save ---
 
+  let pendingSave: { projectId: string; source: string } | null = null;
+
+  function flushPendingSave() {
+    if (saveTimer && pendingSave) {
+      clearTimeout(saveTimer);
+      saveTimer = undefined;
+      const { projectId, source: src } = pendingSave;
+      pendingSave = null;
+      const form = new FormData();
+      form.set('id', projectId);
+      form.set('source', src);
+      fetch('?/update', {
+        method: 'POST',
+        body: form,
+        headers: { 'x-sveltekit-action': 'true' },
+      });
+    }
+  }
+
   function handleSourceChange(newSource: string) {
+    const projectId = activeProjectId; // capture before timeout
+
     // Update local state immediately
-    if (activeProjectId) {
+    if (projectId) {
       projects = projects.map((p) =>
-        p.id === activeProjectId ? { ...p, source: newSource } : p
+        p.id === projectId ? { ...p, source: newSource } : p
       );
     }
 
     // Debounced server save
     clearTimeout(saveTimer);
+    pendingSave = projectId ? { projectId, source: newSource } : null;
     saveTimer = setTimeout(() => {
-      if (activeProjectId) {
+      if (pendingSave) {
+        const { projectId: pid, source: src } = pendingSave;
+        pendingSave = null;
         const form = new FormData();
-        form.set('id', activeProjectId);
-        form.set('source', newSource);
+        form.set('id', pid);
+        form.set('source', src);
         fetch('?/update', {
           method: 'POST',
           body: form,
           headers: { 'x-sveltekit-action': 'true' },
+        }).catch(() => {
+          // TODO: show save error indicator
+          console.error('Failed to save project');
         });
       }
     }, 1000);
